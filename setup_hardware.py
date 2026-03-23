@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import venv
+import tempfile
 
 # Configuration for Strix Halo (gfx1151)
 REQUIRED_PYTHON = (3, 12)
@@ -29,22 +30,46 @@ def verify_env():
         print("FAIL: Virtual environment not found.")
         return False
     
+    # Write a temporary script to avoid quoting hell in shells
+    verify_script = """
+import torch
+try:
+    v = torch.__version__
+    avail = torch.cuda.is_available()
+    print(f"TORCH_VERSION: {v}")
+    print(f"GPU_AVAILABLE: {avail}")
+    if avail:
+        props = torch.cuda.get_device_properties(0)
+        vram = props.total_memory / (1024**3)
+        print(f"VRAM_GB: {vram:.2f}")
+except Exception as e:
+    print(f"ERROR: {e}")
+"""
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+        tmp.write(verify_script)
+        tmp_path = tmp.name
+
     try:
-        # Check torch and GPU
-        cmd = f'{PYTHON_EXE} -c "import torch; print(f\'Torch: {torch.__version__}\'); print(f\'GPU: {torch.cuda.is_available()}\'); props=torch.cuda.get_device_properties(0); print(f\'VRAM: {props.total_memory/(1024**3):.2f}GB\')"'
-        output = subprocess.check_output(cmd, shell=True, text=True)
+        output = subprocess.check_output(f"{PYTHON_EXE} {tmp_path}", shell=True, text=True)
         print(output.strip())
+        os.unlink(tmp_path)
         
-        if "False" in output:
+        if "GPU_AVAILABLE: True" not in output:
             print("FAIL: ROCm/GPU not detected by PyTorch.")
             return False
-        if "8" not in output: # Check if VRAM is roughly 80GB+ (prevents 16GB bug)
-            print("FAIL: VRAM reported is too low. 16GB bug might be active.")
-            return False
+        # Check if VRAM is roughly 80GB+ (prevents 16GB bug)
+        if "VRAM_GB: " in output:
+            vram_line = [l for l in output.splitlines() if "VRAM_GB:" in l][0]
+            vram_val = float(vram_line.split(":")[1].strip())
+            if vram_val < 40: # Strix Halo should be much higher than the 16GB bug cap
+                print(f"FAIL: VRAM reported ({vram_val}GB) is too low. 16GB bug might be active.")
+                return False
             
         print("SUCCESS: Hardware and Environment verified.")
         return True
     except Exception as e:
+        if os.path.exists(tmp_path): os.unlink(tmp_path)
         print(f"FAIL: Verification crashed: {e}")
         return False
 

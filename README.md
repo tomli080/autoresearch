@@ -50,10 +50,12 @@ The `program.md` file is essentially a super lightweight "skill".
 ## Project structure
 
 ```
-prepare.py      — constants, data prep + runtime utilities (do not modify)
-train.py        — model, optimizer, training loop (agent modifies this)
-program.md      — agent instructions
-pyproject.toml  — dependencies
+prepare.py         — constants, data prep + runtime utilities (do not modify)
+train.py           — model, optimizer, training loop (agent modifies this)
+program.md         — agent instructions and hardware mandates
+setup_hardware.py  — builds/verifies the specialized ROCm environment
+env_setup.py       — internal environment overrides (auto-imported)
+pyproject.toml     — standard dependencies
 ```
 
 ## Design choices

@@ -18,23 +18,25 @@ By design, training runs for a **fixed 5-minute time budget** (wall clock, exclu
 
 If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/status/2030720614752039185) looks pretty good for a lot more context.
 
-## Quick start
+## Quick start (AMD Strix Halo / Radeon 8060S Optimized)
 
-**Requirements:** A single NVIDIA GPU (tested on H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).
+**Requirements:** AMD Radeon 8060S (Strix Halo), Windows 11, Python 3.12.
+
+**CRITICAL:** This project uses a specialized **ROCm/TheRock** build to fix VRAM visibility (88GB) and enable AOTriton performance (~24k tok/sec). **Do not use `uv run`** as it may break this specialized environment.
 
 ```bash
+# 1. Create and activate the specialized 3.12 environment
+py -3.12 -m venv .venv
+.\.venv\Scripts\activate
 
-# 1. Install uv project manager (if you don't already have it)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# 2. Install specialized dependencies (already handled in this workspace)
+# (See GEMINI.md for the specific nightly wheel URLs if you need to reinstall)
 
-# 2. Install dependencies
-uv sync
+# 3. Prepare data and train tokenizer
+.\.venv\Scripts\python.exe prepare.py --num-shards 8
 
-# 3. Download data and train tokenizer (one-time, ~2 min)
-uv run prepare.py
-
-# 4. Manually run a single training experiment (~5 min)
-uv run train.py
+# 4. Run training
+.\.venv\Scripts\python.exe train.py
 ```
 
 If the above commands all work ok, your setup is working and you can go into autonomous research mode.

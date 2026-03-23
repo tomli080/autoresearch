@@ -4,10 +4,17 @@ import subprocess
 import venv
 import tempfile
 
+# 1. Path Management: Ensure we find the .venv regardless of where the script is called from
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+VENV_DIR = os.path.join(SCRIPT_DIR, ".venv")
+
+if os.name == "nt":
+    PYTHON_EXE = os.path.join(VENV_DIR, "Scripts", "python.exe")
+else:
+    PYTHON_EXE = os.path.join(VENV_DIR, "bin", "python")
+
 # Configuration for Strix Halo (gfx1151)
 REQUIRED_PYTHON = (3, 12)
-VENV_DIR = ".venv"
-PYTHON_EXE = os.path.join(VENV_DIR, "Scripts", "python.exe") if os.name == "nt" else os.path.join(VENV_DIR, "bin", "python")
 
 # Specialized ROCm / TheRock Nightly Index for Strix Halo
 # This index is dynamically updated by AMD and avoids hardcoded 404 links
@@ -17,17 +24,21 @@ DEPENDENCIES = ["matplotlib", "pandas", "pyarrow", "requests", "rustbpe", "tikto
 
 def run_cmd(cmd):
     print(f"Executing: {cmd}")
+    # Use shell=True for Windows compatibility, but capture output for better debugging
     subprocess.check_call(cmd, shell=True)
 
 def verify_env():
-    print("--- Hardware Verification ---")
+    print(f"--- Hardware Verification (using {PYTHON_EXE}) ---")
     if not os.path.exists(PYTHON_EXE):
-        print("FAIL: Virtual environment not found.")
+        print(f"FAIL: Virtual environment not found at {PYTHON_EXE}")
         return False
     
+    # Write a temporary script to avoid quoting hell in shells
     verify_script = """
-import torch
+import sys
+import os
 try:
+    import torch
     v = torch.__version__
     avail = torch.cuda.is_available()
     print(f"TORCH_VERSION: {v}")
@@ -36,18 +47,21 @@ try:
         props = torch.cuda.get_device_properties(0)
         vram = props.total_memory / (1024**3)
         print(f"VRAM_GB: {vram:.2f}")
+except ImportError:
+    print("FAIL: 'torch' module not found in the virtual environment.")
 except Exception as e:
     print(f"ERROR: {e}")
 """
     
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
-        tmp.write(verify_script)
-        tmp_path = tmp.name
+    # Create temp file in the current directory to ensure it's cleanup-able
+    tmp_path = os.path.join(SCRIPT_DIR, "_verify_tmp.py")
+    with open(tmp_path, 'w') as f:
+        f.write(verify_script)
 
     try:
-        output = subprocess.check_output(f"{PYTHON_EXE} {tmp_path}", shell=True, text=True)
+        # Run the python from the venv explicitly
+        output = subprocess.check_output(f'"{PYTHON_EXE}" {tmp_path}', shell=True, text=True, stderr=subprocess.STDOUT)
         print(output.strip())
-        os.unlink(tmp_path)
         
         if "GPU_AVAILABLE: True" not in output:
             print("FAIL: ROCm/GPU not detected by PyTorch.")
@@ -62,10 +76,15 @@ except Exception as e:
             
         print("SUCCESS: Hardware and Environment verified.")
         return True
+    except subprocess.CalledProcessError as e:
+        print(f"FAIL: Verification execution failed with exit code {e.returncode}")
+        print(f"Output: {e.output}")
+        return False
     except Exception as e:
-        if os.path.exists(tmp_path): os.unlink(tmp_path)
         print(f"FAIL: Verification crashed: {e}")
         return False
+    finally:
+        if os.path.exists(tmp_path): os.unlink(tmp_path)
 
 def setup():
     if sys.version_info[:2] != REQUIRED_PYTHON:
@@ -73,20 +92,19 @@ def setup():
         sys.exit(1)
 
     if not os.path.exists(VENV_DIR):
-        print("Creating virtual environment...")
+        print(f"Creating virtual environment at {VENV_DIR}...")
         venv.create(VENV_DIR, with_pip=True)
 
     print("Building/Repairing environment using Strix Halo Nightly Index...")
-    run_cmd(f"{PYTHON_EXE} -m pip install --upgrade pip")
+    run_cmd(f'"{PYTHON_EXE}" -m pip install --upgrade pip')
     
     # Install the specialized stack using the dynamic index
-    # We use --pre to allow the nightly builds
     print(f"Connecting to: {ROC_INDEX_URL}")
-    run_cmd(f"{PYTHON_EXE} -m pip install --pre torch torchvision torchaudio --index-url {ROC_INDEX_URL} --no-cache-dir")
+    run_cmd(f'"{PYTHON_EXE}" -m pip install --pre torch torchvision torchaudio --index-url {ROC_INDEX_URL} --no-cache-dir')
     
     # Install standard dependencies
     print("Installing project dependencies...")
-    run_cmd(f"{PYTHON_EXE} -m pip install {' '.join(DEPENDENCIES)}")
+    run_cmd(f'"{PYTHON_EXE}" -m pip install {" ".join(DEPENDENCIES)}')
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--verify":

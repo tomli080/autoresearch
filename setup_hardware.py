@@ -9,19 +9,14 @@ REQUIRED_PYTHON = (3, 12)
 VENV_DIR = ".venv"
 PYTHON_EXE = os.path.join(VENV_DIR, "Scripts", "python.exe") if os.name == "nt" else os.path.join(VENV_DIR, "bin", "python")
 
-# Specialized ROCm / TheRock Wheels
-ROC_URLS = [
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/rocm-0.1.dev0.tar.gz",
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/rocm_sdk_core-7.13.0a20260313-py3-none-win_amd64.whl",
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/rocm_sdk_devel-7.13.0a20260313-py3-none-win_amd64.whl",
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/rocm_sdk_libraries_gfx1151-7.13.0a20260313-py3-none-win_amd64.whl",
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/torch-2.12.0a0+rocm7.13.0a20260313-cp312-cp312-win_amd64.whl",
-    "https://repo.radeon.com/rocm/windows/rocm-rel-7.13.0/torchvision-0.26.0a0+rocm7.13.0a20260313-cp312-cp312-win_amd64.whl"
-]
+# Specialized ROCm / TheRock Nightly Index for Strix Halo
+# This index is dynamically updated by AMD and avoids hardcoded 404 links
+ROC_INDEX_URL = "https://rocm.nightlies.amd.com/v2/gfx1151/"
 
 DEPENDENCIES = ["matplotlib", "pandas", "pyarrow", "requests", "rustbpe", "tiktoken"]
 
 def run_cmd(cmd):
+    print(f"Executing: {cmd}")
     subprocess.check_call(cmd, shell=True)
 
 def verify_env():
@@ -30,7 +25,6 @@ def verify_env():
         print("FAIL: Virtual environment not found.")
         return False
     
-    # Write a temporary script to avoid quoting hell in shells
     verify_script = """
 import torch
 try:
@@ -58,11 +52,11 @@ except Exception as e:
         if "GPU_AVAILABLE: True" not in output:
             print("FAIL: ROCm/GPU not detected by PyTorch.")
             return False
-        # Check if VRAM is roughly 80GB+ (prevents 16GB bug)
+        
         if "VRAM_GB: " in output:
             vram_line = [l for l in output.splitlines() if "VRAM_GB:" in l][0]
             vram_val = float(vram_line.split(":")[1].strip())
-            if vram_val < 40: # Strix Halo should be much higher than the 16GB bug cap
+            if vram_val < 40: 
                 print(f"FAIL: VRAM reported ({vram_val}GB) is too low. 16GB bug might be active.")
                 return False
             
@@ -82,9 +76,16 @@ def setup():
         print("Creating virtual environment...")
         venv.create(VENV_DIR, with_pip=True)
 
-    print("Building/Repairing environment...")
+    print("Building/Repairing environment using Strix Halo Nightly Index...")
     run_cmd(f"{PYTHON_EXE} -m pip install --upgrade pip")
-    run_cmd(f"{PYTHON_EXE} -m pip install --no-cache-dir {' '.join(ROC_URLS)}")
+    
+    # Install the specialized stack using the dynamic index
+    # We use --pre to allow the nightly builds
+    print(f"Connecting to: {ROC_INDEX_URL}")
+    run_cmd(f"{PYTHON_EXE} -m pip install --pre torch torchvision torchaudio --index-url {ROC_INDEX_URL} --no-cache-dir")
+    
+    # Install standard dependencies
+    print("Installing project dependencies...")
     run_cmd(f"{PYTHON_EXE} -m pip install {' '.join(DEPENDENCIES)}")
 
 if __name__ == "__main__":

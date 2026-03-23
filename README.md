@@ -20,13 +20,13 @@ If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/s
 
 # Quick start (AMD Strix Halo / Radeon 8060S Optimized)
 
-**Requirements:** AMD Radeon 8060S (Strix Halo), Windows 11, Python 3.12.
+**Requirements:** AMD Radeon 8060S (Strix Halo), Windows 11, **Python 3.12**.
 
 **CRITICAL:** This project uses a specialized **ROCm/TheRock** build to fix VRAM visibility (88GB) and enable AOTriton performance (~24k tok/sec). **Do not use `uv run`** as it may break this specialized environment.
 
 ```bash
-# 1. Build and verify the hardware-specific environment
-python setup_hardware.py
+# 1. Build and verify the hardware-specific environment (Requires Python 3.12)
+py -3.12 setup_hardware.py
 
 # 2. Prepare data and train tokenizer
 .\.venv\Scripts\python.exe prepare.py --num-shards 8

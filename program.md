@@ -8,8 +8,8 @@ This is an experiment to have the LLM do its own research.
 
 1. **DO NOT USE `uv run`**: Using `uv` will trigger a re-sync that uninstalls the specialized **ROCm/TheRock** builds, reverting the GPU to the 16GB VRAM bug and disabling AOTriton.
 2. **ENVIRONMENT SETUP**: 
-   - Build/Repair: `python setup_hardware.py`
-   - Mandatory Verification: Before any training run, you MUST run `python setup_hardware.py --verify`. If it fails, you must repair the environment before proceeding.
+   - Build/Repair: `py -3.12 setup_hardware.py`
+   - Mandatory Verification: Before any training run, you MUST run `py -3.12 setup_hardware.py --verify`. If it fails, you must repair the environment before proceeding.
 3. **ALWAYS USE THE LOCAL VENV**: Execute all scripts using the local virtual environment directly:
    - Command: `.\.venv\Scripts\python.exe <script_name>.py`
 3. **ARCHITECTURE**: The hardware is **gfx1151**. Environment overrides (VRAM fix, AOTriton) are handled automatically via `import env_setup` at the top of every script.

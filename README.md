@@ -18,24 +18,20 @@ By design, training runs for a **fixed 5-minute time budget** (wall clock, exclu
 
 If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/status/2030720614752039185) looks pretty good for a lot more context.
 
-## Quick start (AMD Strix Halo / Radeon 8060S Optimized)
+# Quick start (AMD Strix Halo / Radeon 8060S Optimized)
 
 **Requirements:** AMD Radeon 8060S (Strix Halo), Windows 11, Python 3.12.
 
 **CRITICAL:** This project uses a specialized **ROCm/TheRock** build to fix VRAM visibility (88GB) and enable AOTriton performance (~24k tok/sec). **Do not use `uv run`** as it may break this specialized environment.
 
 ```bash
-# 1. Create and activate the specialized 3.12 environment
-py -3.12 -m venv .venv
-.\.venv\Scripts\activate
+# 1. Build and verify the hardware-specific environment
+python setup_hardware.py
 
-# 2. Install specialized dependencies (already handled in this workspace)
-# (See GEMINI.md for the specific nightly wheel URLs if you need to reinstall)
-
-# 3. Prepare data and train tokenizer
+# 2. Prepare data and train tokenizer
 .\.venv\Scripts\python.exe prepare.py --num-shards 8
 
-# 4. Run training
+# 3. Run training
 .\.venv\Scripts\python.exe train.py
 ```
 
